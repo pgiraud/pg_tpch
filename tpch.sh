@@ -1,8 +1,6 @@
 #!/bin/sh
 
-RESULTS=$1
-DBNAME=$2
-USER=$3
+RESULTS=results
 
 # delay between stats collections (iostat, vmstat, ...)
 DELAY=15
@@ -18,35 +16,35 @@ benchmark_run() {
     mkdir -p "$RESULTS"
 
     # store the settings
-    psql -h localhost postgres -U "$USER" -c "select name,setting from pg_settings" > "$RESULTS/settings.log" 2> "$RESULTS/settings.err"
+    psql -h localhost postgres -U "$PGUSER" -c "select name,setting from pg_settings" > "$RESULTS/settings.log" 2> "$RESULTS/settings.err"
 
     print_log "preparing TPC-H database"
 
-    psql -h localhost -U "$USER" -c "DROP DATABASE $DBNAME;";
-    psql -h localhost -U "$USER" -c "CREATE DATABASE $DBNAME;";
+    psql -h localhost -U "$PGUSER" -c "DROP DATABASE $DBNAME;";
+    psql -h localhost -U "$PGUSER" -c "CREATE DATABASE $DBNAME;";
 
     # create database, populate it with data and set up foreign keys
-    # psql -h localhost -U "$USER" "$DBNAME" < dss/tpch-create.sql > $RESULTS/create.log # 2> $RESULTS/create.err
+    # psql -h localhost -U "$PGUSER" "$DBNAME" < dss/tpch-create.sql > $RESULTS/create.log # 2> $RESULTS/create.err
 
     print_log "  loading data"
 
-    psql -h localhost -U "$USER" "$DBNAME" < dss/tpch-load.sql > "$RESULTS/load.log" # 2> "$RESULTS/load.err"
+    psql -h localhost -U "$PGUSER" "$DBNAME" < dss/tpch-load.sql > "$RESULTS/load.log" # 2> "$RESULTS/load.err"
 
     print_log "  creating primary keys"
 
-    psql -h localhost -U "$USER" "$DBNAME" < dss/tpch-pkeys.sql > "$RESULTS/pkeys.log" # 2> "$RESULTS/pkeys.err"
+    psql -h localhost -U "$PGUSER" "$DBNAME" < dss/tpch-pkeys.sql > "$RESULTS/pkeys.log" # 2> "$RESULTS/pkeys.err"
 
     print_log "  creating foreign keys"
 
-    psql -h localhost -U "$USER" "$DBNAME" < dss/tpch-alter.sql > "$RESULTS/alter.log" # 2> "$RESULTS/alter.err"
+    psql -h localhost -U "$PGUSER" "$DBNAME" < dss/tpch-alter.sql > "$RESULTS/alter.log" # 2> "$RESULTS/alter.err"
 
     print_log "  creating indexes"
 
-    psql -h localhost -U "$USER" "$DBNAME" < dss/tpch-index.sql > "$RESULTS/index.log" # 2> "$RESULTS/index.err"
+    psql -h localhost -U "$PGUSER" "$DBNAME" < dss/tpch-index.sql > "$RESULTS/index.log" # 2> "$RESULTS/index.err"
 
     print_log "  analyzing"
 
-    psql -h localhost -U "$USER" "$DBNAME" -c "analyze" > "$RESULTS/analyze.log" # 2> "$RESULTS/analyze.err"
+    psql -h localhost -U "$PGUSER" "$DBNAME" -c "analyze" > "$RESULTS/analyze.log" # 2> "$RESULTS/analyze.err"
 
     print_log "running TPC-H benchmark"
 
@@ -84,13 +82,13 @@ benchmark_dss() {
             echo "======= query $n =======" >> "$RESULTS/data.log" 2>&1;
 
             # run explain
-            psql -h localhost -U "$USER" "$DBNAME" < "$qe" > "$RESULTS/explain/$n" 2>> "$RESULTS/explain.err"
+            psql -h localhost -U "$PGUSER" "$DBNAME" < "$qe" > "$RESULTS/explain/$n" 2>> "$RESULTS/explain.err"
 
             vmstat -s > "$RESULTS/vmstat-s/before-$n.log" 2>&1
             vmstat -d > "$RESULTS/vmstat-d/before-$n.log" 2>&1
 
             # run the query on background
-            /usr/bin/time -a -f "$n = %e" -o "$RESULTS/results.log" psql -h localhost -U "$USER" "$DBNAME" < "$q" > "$RESULTS/results/$n" 2> "$RESULTS/errors/$n" &
+            /usr/bin/time -a -f "$n = %e" -o "$RESULTS/results.log" psql -h localhost -U "$PGUSER" "$DBNAME" < "$q" > "$RESULTS/results/$n" 2> "$RESULTS/errors/$n" &
 
             # wait up to the given number of seconds, then terminate the query if still running (don't wait for too long)
             for i in $(seq 0 "$DSS_TIMEOUT")
@@ -185,7 +183,7 @@ mkdir "$RESULTS";
 stat_collection_start "$RESULTS"
 
 # run the benchmark
-benchmark_run "$RESULTS" "$DBNAME" "$USER"
+benchmark_run "$RESULTS" "$DBNAME" "$PGUSER"
 
 # stop statistics collection
 stat_collection_stop

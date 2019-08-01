@@ -1,0 +1,4 @@
+dss/queries/*.sql
+results/*
+!results/empty_folder
+tpch
